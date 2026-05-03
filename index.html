@@ -13,9 +13,9 @@ let video1, video2;
 let cam;
 let prevFrame;
 
-let threshold = 5000;     // ⭐ 큰 움직임만 감지
+let threshold = 3000;     // ⭐ 적당한 민감도
 let motionFrames = 0;
-let requiredFrames = 8;   // ⭐ 몇 프레임 지속돼야 반응
+let requiredFrames = 6;   // ⭐ 너무 높지 않게
 
 let playingSecond = false;
 let soundPlayed = false;
@@ -24,19 +24,22 @@ let audio;
 function setup() {
   createCanvas(windowWidth, windowHeight);
 
-  // 🎬 영상
+  // 🎬 첫 영상 (자동 재생 보장)
   video1 = createVideo(['first.mp4']);
-  video2 = createVideo(['second.mp4']);
-
   video1.hide();
-  video2.hide();
-
+  video1.volume(0);   // ⭐ 중요: autoplay 허용
   video1.loop();
+  video1.play();      // ⭐ 처음부터 무조건 재생
+
+  // 🎬 두 번째 영상
+  video2 = createVideo(['second.mp4']);
+  video2.hide();
+  video2.volume(0);
   video2.stop();
 
   // 📷 웹캠
   cam = createCapture(VIDEO);
-  cam.size(320, 240); // 작게 = 안정 + 빠름
+  cam.size(320, 240);
   cam.hide();
 
   // 🔊 사운드
@@ -46,6 +49,12 @@ function setup() {
 function draw() {
   background(0);
 
+  // 🎬 항상 기본 영상 먼저 보여줌
+  if (!playingSecond) {
+    image(video1, 0, 0, width, height);
+  }
+
+  // 🎬 두 번째 영상 상태
   if (playingSecond) {
     image(video2, 0, 0, width, height);
 
@@ -55,42 +64,36 @@ function draw() {
       video1.loop();
       soundPlayed = false;
     }
+    return;
+  }
 
-  } else {
-    image(video1, 0, 0, width, height);
+  // 👁 움직임 감지
+  cam.loadPixels();
 
-    cam.loadPixels();
+  if (prevFrame) {
+    let diff = 0;
 
-    if (prevFrame) {
-      let diff = 0;
+    for (let i = 0; i < cam.pixels.length; i += 16) {
+      let d = abs(cam.pixels[i] - prevFrame[i]);
 
-      for (let i = 0; i < cam.pixels.length; i += 16) {
-        let current = cam.pixels[i];
-        let previous = prevFrame[i];
-
-        let d = abs(current - previous);
-
-        // ⭐ 작은 노이즈 무시
-        if (d > 20) {
-          diff += d;
-        }
-      }
-
-      // ⭐ 일정 시간 지속된 움직임만 인정
-      if (diff > threshold) {
-        motionFrames++;
-      } else {
-        motionFrames = 0;
-      }
-
-      if (motionFrames > requiredFrames && !playingSecond) {
-        startSecondVideo();
-        motionFrames = 0;
+      if (d > 25) {   // ⭐ 노이즈 제거
+        diff += d;
       }
     }
 
-    prevFrame = cam.pixels.slice();
+    if (diff > threshold) {
+      motionFrames++;
+    } else {
+      motionFrames = max(0, motionFrames - 1); // ⭐ 부드럽게 감소
+    }
+
+    if (motionFrames > requiredFrames) {
+      startSecondVideo();
+      motionFrames = 0;
+    }
   }
+
+  prevFrame = cam.pixels.slice();
 }
 
 function startSecondVideo() {
@@ -99,6 +102,7 @@ function startSecondVideo() {
   video1.stop();
   video2.play();
 
+  // 🔊 사운드 (한 번만)
   if (!soundPlayed) {
     audio.currentTime = 0;
     audio.play();

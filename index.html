@@ -2,17 +2,99 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <script src="https://cdn.jsdelivr.net/npm/p5@1.9.0/lib/p5.min.js"></script>
+  <title>Motion Video</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.min.js"></script>
 </head>
-<body>
-  <button onclick="startApp()">START</button>
 
-  <script src="sketch.js"></script>
+<body style="margin:0; overflow:hidden; background:black;">
+<script>
 
-  <script>
-    function startApp() {
-      userStartAudio(); // 크롬용
+let video1, video2;
+let cam;
+let prevFrame;
+let threshold = 50; // 움직임 민감도
+let playingSecond = false;
+
+let soundPlayed = false;
+let audio;
+
+function setup() {
+  createCanvas(640, 480);
+
+  // 📹 영상
+  video1 = createVideo(['first.mp4']);
+  video2 = createVideo(['second.mp4']);
+
+  video1.hide();
+  video2.hide();
+
+  video1.loop(); // 기본영상 계속 재생
+  video2.stop();
+
+  // 🎤 웹캠
+  cam = createCapture(VIDEO);
+  cam.size(640, 480);
+  cam.hide();
+
+  // 🔊 사운드
+  audio = new Audio('sound.m4a');
+}
+
+function draw() {
+  background(0);
+
+  // 현재 영상 출력
+  if (playingSecond) {
+    image(video2, 0, 0, width, height);
+
+    // 끝나면 다시 1번으로
+    if (video2.elt.ended) {
+      playingSecond = false;
+      video2.stop();
+      video1.loop();
+      soundPlayed = false;
     }
-  </script>
+
+  } else {
+    image(video1, 0, 0, width, height);
+
+    // 움직임 체크
+    cam.loadPixels();
+
+    if (prevFrame) {
+      let diff = 0;
+
+      for (let i = 0; i < cam.pixels.length; i += 4) {
+        let current = cam.pixels[i];
+        let previous = prevFrame[i];
+        diff += abs(current - previous);
+      }
+
+      let avg = diff / (cam.pixels.length / 4);
+
+      if (avg > threshold && !playingSecond) {
+        startSecondVideo();
+      }
+    }
+
+    prevFrame = cam.pixels.slice();
+  }
+}
+
+function startSecondVideo() {
+  playingSecond = true;
+
+  video1.stop();
+  video2.play();
+
+  // 🔊 소리 재생 (한 번만)
+  if (!soundPlayed) {
+    audio.currentTime = 0;
+    audio.play();
+    soundPlayed = true;
+  }
+}
+
+</script>
 </body>
 </html>

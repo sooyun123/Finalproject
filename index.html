@@ -12,7 +12,10 @@
 let video1, video2;
 let cam;
 let prevFrame;
-let threshold = 20; // ⭐ 민감도 (10~20 추천)
+
+let threshold = 5000;     // ⭐ 큰 움직임만 감지
+let motionFrames = 0;
+let requiredFrames = 8;   // ⭐ 몇 프레임 지속돼야 반응
 
 let playingSecond = false;
 let soundPlayed = false;
@@ -28,12 +31,12 @@ function setup() {
   video1.hide();
   video2.hide();
 
-  video1.loop();   // 기본 영상 반복
+  video1.loop();
   video2.stop();
 
   // 📷 웹캠
   cam = createCapture(VIDEO);
-  cam.size(320, 240); // 작게 해서 더 빠르게 감지
+  cam.size(320, 240); // 작게 = 안정 + 빠름
   cam.hide();
 
   // 🔊 사운드
@@ -46,7 +49,6 @@ function draw() {
   if (playingSecond) {
     image(video2, 0, 0, width, height);
 
-    // 🎬 두번째 영상 끝나면 복귀
     if (video2.elt.ended) {
       playingSecond = false;
       video2.stop();
@@ -57,22 +59,33 @@ function draw() {
   } else {
     image(video1, 0, 0, width, height);
 
-    // 👁 움직임 감지
     cam.loadPixels();
 
     if (prevFrame) {
       let diff = 0;
 
-      for (let i = 0; i < cam.pixels.length; i += 16) { // ⭐ 속도 + 민감도 개선
+      for (let i = 0; i < cam.pixels.length; i += 16) {
         let current = cam.pixels[i];
         let previous = prevFrame[i];
-        diff += abs(current - previous);
+
+        let d = abs(current - previous);
+
+        // ⭐ 작은 노이즈 무시
+        if (d > 20) {
+          diff += d;
+        }
       }
 
-      let avg = diff / (cam.pixels.length / 16);
+      // ⭐ 일정 시간 지속된 움직임만 인정
+      if (diff > threshold) {
+        motionFrames++;
+      } else {
+        motionFrames = 0;
+      }
 
-      if (avg > threshold && !playingSecond) {
+      if (motionFrames > requiredFrames && !playingSecond) {
         startSecondVideo();
+        motionFrames = 0;
       }
     }
 
@@ -86,7 +99,6 @@ function startSecondVideo() {
   video1.stop();
   video2.play();
 
-  // 🔊 사운드 재생
   if (!soundPlayed) {
     audio.currentTime = 0;
     audio.play();
@@ -94,7 +106,6 @@ function startSecondVideo() {
   }
 }
 
-// 📱 화면 크기 대응
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
 }

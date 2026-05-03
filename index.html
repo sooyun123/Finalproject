@@ -7,35 +7,51 @@
 </head>
 
 <body style="margin:0; overflow:hidden; background:black;">
+
 <script>
 
 let video1, video2;
 let cam;
 let prevFrame;
 
-let threshold = 3000;     // ⭐ 적당한 민감도
 let motionFrames = 0;
-let requiredFrames = 6;   // ⭐ 너무 높지 않게
+let requiredFrames = 6;
 
 let playingSecond = false;
 let soundPlayed = false;
 let audio;
 
+// 🔥 브라우저 감지
+let isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+let threshold;
+let stepSize;
+
+if (isSafari) {
+  threshold = 1500;
+  stepSize = 8;
+} else {
+  threshold = 3000;
+  stepSize = 16;
+}
+
 function setup() {
   createCanvas(windowWidth, windowHeight);
 
-  // 🎬 첫 영상 (자동 재생 보장)
+  // 🎬 첫 영상 (자동재생)
   video1 = createVideo(['first.mp4']);
   video1.hide();
-  video1.volume(0);   // ⭐ 중요: autoplay 허용
+  video1.volume(0);
   video1.loop();
-  video1.play();      // ⭐ 처음부터 무조건 재생
+  video1.play();
+  video1.elt.setAttribute("playsinline", "");
 
   // 🎬 두 번째 영상
   video2 = createVideo(['second.mp4']);
   video2.hide();
   video2.volume(0);
   video2.stop();
+  video2.elt.setAttribute("playsinline", "");
 
   // 📷 웹캠
   cam = createCapture(VIDEO);
@@ -49,7 +65,7 @@ function setup() {
 function draw() {
   background(0);
 
-  // 🎬 항상 기본 영상 먼저 보여줌
+  // 🎬 기본 영상 항상 먼저
   if (!playingSecond) {
     image(video1, 0, 0, width, height);
   }
@@ -73,10 +89,10 @@ function draw() {
   if (prevFrame) {
     let diff = 0;
 
-    for (let i = 0; i < cam.pixels.length; i += 16) {
+    for (let i = 0; i < cam.pixels.length; i += stepSize) {
       let d = abs(cam.pixels[i] - prevFrame[i]);
 
-      if (d > 25) {   // ⭐ 노이즈 제거
+      if (d > 20) {
         diff += d;
       }
     }
@@ -84,7 +100,7 @@ function draw() {
     if (diff > threshold) {
       motionFrames++;
     } else {
-      motionFrames = max(0, motionFrames - 1); // ⭐ 부드럽게 감소
+      motionFrames *= 0.8;
     }
 
     if (motionFrames > requiredFrames) {
@@ -102,7 +118,7 @@ function startSecondVideo() {
   video1.stop();
   video2.play();
 
-  // 🔊 사운드 (한 번만)
+  // 🔊 사운드
   if (!soundPlayed) {
     audio.currentTime = 0;
     audio.play();
@@ -115,5 +131,6 @@ function windowResized() {
 }
 
 </script>
+
 </body>
 </html>
